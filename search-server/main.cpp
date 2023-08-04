@@ -62,17 +62,16 @@ public:
   void AddDocument(int document_id, const string& document) {
       const vector<string> words = SplitIntoWordsNoStop(document);
       document_count_++;
-      const double chastica= 1./words.size();
+      const double particle= 1./words.size();
       for (string word : words){
           double word_count = 0;
-          for(string word_1 : words) 
-          {
-              if(word_1 == word)
-                word_count+=chastica;
+          word_count+=count(words.begin(),words.end(), word); 
+          word_count*=particle;
+          word_to_document_freqs_[word][document_id] = word_count;
           }
-      word_to_document_freqs_[word][document_id] =word_count;
+      
       }
-  }
+  
        
     
    
@@ -134,27 +133,35 @@ private:
         }
         return query;
     }
- 
+    
+    
+    
+    double CalcIDF(const string& plusword) const{
+        return static_cast<double> (log(static_cast<double> (document_count_) / static_cast<double> (word_to_document_freqs_.at(plusword).size())));
+    }
+    
+    
+    
     vector<Document> FindAllDocuments(const Query& query_words) const {
         map<int, double> document_to_relevance;
         vector<Document> answer;
-        for (const auto& plusword : query_words.plus_words) {
-            if(word_to_document_freqs_.count(plusword)!=0)
-            { double IDF=log(static_cast<double> (document_count_)
-                             / static_cast<double> (word_to_document_freqs_.at(plusword).size()));
-                 for(const pair<int,double>& doc : word_to_document_freqs_.at(plusword)){
-                     double TF_IDF= IDF * (doc.second);
-                     document_to_relevance[doc.first]+=TF_IDF;
+        for (const string& plusword : query_words.plus_words) {
+            if( word_to_document_freqs_.count(plusword) != 0 ){ 
+                double IDF = CalcIDF(plusword);
+                for( const auto& [document_id, TF] : word_to_document_freqs_.at(plusword)){
+                     double TF_IDF= IDF * (TF);
+                     document_to_relevance[document_id]+=TF_IDF;
                  }
             }
         }
+    
        if(!query_words.minus_words.empty()){      
            for  (const auto& minusword : query_words.minus_words) {
-           if(word_to_document_freqs_.count(minusword)!=0){
+           if( word_to_document_freqs_.count(minusword) != 0 ){
                 for ( const pair<string,map<int, double>>& doc : word_to_document_freqs_){
                     if (doc.first == minusword){
-                        for(const pair<int,double>& docsec : doc.second){
-                           document_to_relevance.erase(docsec.first);
+                        for(const auto& [document_id, TF] : doc.second){
+                           document_to_relevance.erase(document_id);
                                 }
                             }
                         }
@@ -191,8 +198,8 @@ int main() {
  
     const string query = ReadLine();
     for (const auto& [document_id, relevance] : search_server.FindTopDocuments(query)) {
+        
         cout << "{ document_id = "s << document_id << ", "
              << "relevance = "s << relevance << " }"s << endl;
     }
-    return 0;
-}
+    return 0;}
