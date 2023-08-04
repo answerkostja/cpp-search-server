@@ -64,10 +64,7 @@ public:
       document_count_++;
       const double particle= 1./words.size();
       for (string word : words){
-          double word_count = 0;
-          word_count+=count(words.begin(),words.end(), word); 
-          word_count*=particle;
-          word_to_document_freqs_[word][document_id] = word_count;
+          word_to_document_freqs_[word][document_id] += particle;
           }
       
       }
