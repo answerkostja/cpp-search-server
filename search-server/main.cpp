@@ -7,10 +7,12 @@
 #include <utility>
 #include <vector>
 #include <optional>
+#include <numeric>
 
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const int Relevance_Count = 1e-6;
 
 string ReadLine() {
     string s;
@@ -86,16 +88,20 @@ public:
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words)
         : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
-            for(const auto& stop_word: stop_words)
-            if(!IsValidWord(stop_word)) 
-                throw invalid_argument("стоп слова содержат недопустимые символы");
+            if(all_of(stop_words.cbegin(),stop_words.cend(),[](const string& stop_word){
+                    if(!IsValidWord(stop_word)){
+                        return true;
+                    }
+         } )) {
+            throw invalid_argument("стоп слова содержат недопустимые символы");
+         }
     }
 
     explicit SearchServer(const string& stop_words_text)
         : SearchServer(
             SplitIntoWords(stop_words_text))  // Invoke delegating constructor from string container
-    {   if(!IsValidWord(stop_words_text)) 
-                throw invalid_argument("стоп слова содержат недопустимые символы");
+    {   
+                
     }
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
@@ -119,6 +125,7 @@ public:
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+        documents_id_.push_back(document_id);
         
         
     }
@@ -127,34 +134,15 @@ public:
         vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate
                                         ) const {
         const Query query = ParseQuery(raw_query);
-
-        for(string flag: query.plus_words){
-            if(!IsValidWord(flag)){
-                throw invalid_argument("плюс слова содержат недопустимые символы");
-            }
-        }
-
-        for(string flag: query.minus_words){
-            if(!IsValidWord(flag)){
-                throw invalid_argument("минус слова содержат недопустимые символы");
-            }
-            if(flag[0]=='-'){
-                throw invalid_argument("наличие более одного знака минус");
-            }
-            if(flag.empty()){
-                throw invalid_argument("отсутствует слово после знака минус");
-            }
-        }
-        
         auto matched_documents = FindAllDocuments(query, document_predicate);
 
         sort(matched_documents.begin(), matched_documents.end(),
              [](const Document& lhs, const Document& rhs) {
-                 if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < Relevance_Count) {
                      return lhs.rating > rhs.rating;
-                 } else {
-                     return lhs.relevance > rhs.relevance;
-                 }
+                 } 
+                return lhs.relevance > rhs.relevance;
+                 
              });
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
@@ -179,23 +167,6 @@ public:
 
     tuple<vector<string>,DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
         const Query query = ParseQuery(raw_query);
-         for(string flag: query.plus_words){
-            if(!IsValidWord(flag)){
-                throw invalid_argument("плюс слова содержат недопустимые символы");
-            }
-        }
-
-        for(string flag: query.minus_words){
-            if(!IsValidWord(flag)){
-                throw invalid_argument("минус слова содержат недопустимые символы");
-            }
-            if(flag[0]=='-'){
-                throw invalid_argument("наличие более одного знака минус");
-            }
-            if(flag.empty()){
-                throw invalid_argument("отсутствует слово после знака минус");
-            }
-        }
         vector<string> matched_words;
         for (const string& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
@@ -219,17 +190,14 @@ public:
     }
     
     int GetDocumentId(int index) const {
-        if(index > static_cast<int>(documents_.size()) || index<0) 
+        if(index > static_cast<int>(documents_id_.size()) || index<0) {
             throw out_of_range("индекс переданного документа выходит за пределы допустимого диапазона (0; количество документов)");
-        int flag=0;
-        for(auto [key,_] : documents_){
-            if(flag==index){
-                return key;
-            }
-            flag++;
         }
-        return SearchServer::INVALID_DOCUMENT_ID;
+        return  documents_id_[index];
+            
         }
+        
+        
 
     
 
@@ -241,6 +209,7 @@ private:
     const set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
+    vector<int> documents_id_;
     
     static bool IsValidWord(const string& word) {
         // A valid word must not contain special characters
@@ -268,9 +237,7 @@ private:
             return 0;
         }
         int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
         return rating_sum / static_cast<int>(ratings.size());
     }
 
@@ -305,6 +272,23 @@ private:
                 } else {
                     query.plus_words.insert(query_word.data);
                 }
+            }
+        }
+        for(string flag: query.plus_words){
+            if(!IsValidWord(flag)){
+                throw invalid_argument("плюс слова содержат недопустимые символы");
+            }
+        }
+
+        for(string flag: query.minus_words){
+            if(!IsValidWord(flag)){
+                throw invalid_argument("минус слова содержат недопустимые символы");
+            }
+            if(flag[0]=='-'){
+                throw invalid_argument("наличие более одного знака минус");
+            }
+            if(flag.empty()){
+                throw invalid_argument("отсутствует слово после знака минус");
             }
         }
         return query;
@@ -349,6 +333,14 @@ private:
         return matched_documents;
     }
 };
+
+int main(){
+    return 0;
+}
+
+
+
+
 
 
 
