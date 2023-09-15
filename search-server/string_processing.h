@@ -1,10 +1,7 @@
 #pragma once
+
 #include <string>
-#include <iostream>
-#include <vector>
 #include <set>
-
-
 
 
 std::vector<std::string> SplitIntoWords(const std::string& text);

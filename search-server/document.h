@@ -1,7 +1,5 @@
 #pragma once
 #include <iostream>
-#include <string>
-#include <set>
 #include <vector>
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;

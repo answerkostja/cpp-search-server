@@ -75,6 +75,7 @@ bool SearchServer::IsStopWord(const std::string& word) const {
             });
     }
 
+
 std::vector<std::string> SearchServer::SplitIntoWordsNoStop(const std::string& text) const {
         using namespace std::literals;
         std::vector<std::string> words;
@@ -128,4 +129,8 @@ SearchServer::Query SearchServer::ParseQuery(const std::string& text) const {
             }
         }
         return result;
+    }
+
+double SearchServer::ComputeWordInverseDocumentFreq(const std::string& word) const {
+        return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
     }
